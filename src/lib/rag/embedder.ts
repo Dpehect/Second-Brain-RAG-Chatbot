@@ -1,4 +1,8 @@
-import { pipeline } from '@xenova/transformers'
+import { env, pipeline } from '@xenova/transformers'
+
+// Configure transformers.js to use the writable /tmp directory on serverless hosts like Vercel
+env.cacheDir = '/tmp/transformers-cache'
+env.allowLocalModels = false // Prevents checking local paths and speeds up loading
 
 // Singleton class to ensure the ONNX model is loaded only once and cached in memory
 class EmbedderPipeline {
@@ -6,7 +10,6 @@ class EmbedderPipeline {
 
   static async getInstance() {
     if (!this.instance) {
-      // Disable remote downloading configurations if needed, but defaults are fine
       this.instance = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2')
     }
     return this.instance
