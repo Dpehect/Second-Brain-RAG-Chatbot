@@ -18,8 +18,9 @@ export default async function ChatPage({ params }: ChatPageProps) {
 
   // If no chat ID exists, immediately create a new chat and redirect
   if (!activeId) {
+    let newChatId = ''
     try {
-      await createConversation()
+      newChatId = await createConversation()
     } catch (err) {
       console.error('Failed to auto-create conversation:', err)
       return (
@@ -28,7 +29,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
         </div>
       )
     }
-    return null
+    redirect(`/dashboard/chat/${newChatId}`)
   }
 
   const supabase = await createClient()

@@ -36,7 +36,8 @@ export default function Sidebar({ user, conversations }: SidebarProps) {
   const handleNewChat = () => {
     startTransition(async () => {
       try {
-        await createConversation()
+        const newId = await createConversation()
+        router.push(`/dashboard/chat/${newId}`)
         setIsOpen(false)
       } catch (err) {
         console.error('Error creating conversation:', err)

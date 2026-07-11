@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
 /**
  * Creates a new conversation and redirects the user to its chat page.
@@ -29,7 +28,7 @@ export async function createConversation() {
   }
 
   revalidatePath('/dashboard', 'layout')
-  redirect(`/dashboard/chat/${conv.id}`)
+  return conv.id
 }
 
 /**
