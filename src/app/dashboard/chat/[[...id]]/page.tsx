@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createConversation } from '@/lib/actions/conversation'
 import ChatBox from '@/components/chat/chat-box'
-import { AlertCircle } from 'lucide-react'
+import ChatInitializer from '@/components/chat/chat-initializer'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,49 +16,9 @@ export default async function ChatPage({ params }: ChatPageProps) {
   const idArray = resolvedParams.id
   const activeId = idArray && idArray.length > 0 ? idArray[0] : null
 
-  // If no chat ID exists, immediately create a new chat and redirect
+  // If no chat ID exists, render the client-side ChatInitializer
   if (!activeId) {
-    let newChatId = ''
-    try {
-      newChatId = await createConversation()
-    } catch (err: any) {
-      console.error('Failed to auto-create conversation:', err)
-      return (
-        <div className="flex flex-1 flex-col items-center justify-center bg-neutral-900 p-6 text-center space-y-4">
-          <div className="rounded-full bg-red-950/20 p-4 border border-red-900/30 text-red-400 animate-pulse">
-            <AlertCircle className="h-6 w-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-white">Sohbet Odası Başlatılamadı</h3>
-            <p className="text-xs text-neutral-500 max-w-sm leading-relaxed mx-auto">
-              Veritabanı bağlantısı kurulamadı veya tablolar oluşturulmadı. Lütfen Supabase SQL betiklerini çalıştırdığınızdan emin olun.
-            </p>
-          </div>
-          
-          <div className="max-w-md w-full bg-neutral-950/60 border border-neutral-850 p-3.5 rounded-xl text-left">
-            <p className="text-[10px] font-mono text-red-400 break-all leading-normal">
-              Hata Kodu / Mesajı: {err instanceof Error ? err.message : String(err)}
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <a 
-              href="/dashboard/chat"
-              className="inline-flex h-9 items-center justify-center rounded-lg bg-violet-600 px-4 text-xs font-semibold text-white hover:bg-violet-500 transition-colors shadow-lg shadow-violet-500/10 cursor-pointer"
-            >
-              Yeniden Dene
-            </a>
-            <a 
-              href="/dashboard"
-              className="inline-flex h-9 items-center justify-center rounded-lg bg-neutral-850 px-4 text-xs font-semibold text-neutral-300 hover:bg-neutral-800 transition-colors border border-neutral-800 cursor-pointer"
-            >
-              Panele Dön
-            </a>
-          </div>
-        </div>
-      )
-    }
-    redirect(`/dashboard/chat/${newChatId}`)
+    return <ChatInitializer />
   }
 
   const supabase = await createClient()
