@@ -1,9 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { generateEmbedding } from '@/lib/rag/embedder'
-import { openai } from '@ai-sdk/openai'
-import { anthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
-import { streamText } from 'ai'
 
 export const maxDuration = 60
 
@@ -27,12 +22,12 @@ export async function POST(req: Request) {
     const lastUserMessage = messages[messages.length - 1]
     const userQuery = lastUserMessage.content
 
-    // 2. Perform Semantic Search locally
+    // 2. Perform Semantic Search locally (dynamic import)
     let queryEmbedding: number[] = []
     let retrievedChunks: any[] = []
 
     try {
-      // This now runs fully locally via @xenova/transformers
+      const { generateEmbedding } = await import('@/lib/rag/embedder')
       queryEmbedding = await generateEmbedding(userQuery)
 
       // Query pgvector matches via RPC
@@ -191,19 +186,23 @@ Context:
 ${context}`
     }
 
-    // 5. Select the LLM Model provider
+    // 5. Select the LLM Model provider (dynamic imports)
+    const { streamText } = await import('ai')
     let selectedModel: any
 
     if (isOllamaRunning) {
       // Connect to local Ollama via OpenAI compatibility provider
+      const { createOpenAI } = await import('@ai-sdk/openai')
       const localOllama = createOpenAI({
         baseURL: 'http://localhost:11434/v1',
         apiKey: 'ollama', // Dummy key
       })
       selectedModel = localOllama(ollamaModel)
     } else if (model === 'claude-3-5-sonnet' && hasAnthropic) {
+      const { anthropic } = await import('@ai-sdk/anthropic')
       selectedModel = anthropic('claude-3-5-sonnet-20241022')
     } else if (model === 'grok-3' && hasXai) {
+      const { createOpenAI } = await import('@ai-sdk/openai')
       const xai = createOpenAI({
         name: 'xai',
         apiKey: process.env.XAI_API_KEY || '',
@@ -212,6 +211,7 @@ ${context}`
       selectedModel = xai('grok-beta')
     } else {
       // Fallback to OpenAI GPT-4o
+      const { openai } = await import('@ai-sdk/openai')
       selectedModel = openai('gpt-4o')
     }
 

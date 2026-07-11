@@ -1,13 +1,20 @@
-import * as pdf from 'pdf-parse'
-import mammoth from 'mammoth'
-import WordExtractor from 'word-extractor'
+'use server'
+
+/**
+ * Document parser module with serverless-safe architecture.
+ * 
+ * All heavy library imports (pdf-parse, mammoth, word-extractor) are dynamic
+ * to prevent Vercel serverless crashes from module-level side effects.
+ */
 
 /**
  * Parses a PDF buffer and returns its raw text content.
  */
 export async function parsePdf(buffer: Buffer): Promise<string> {
   try {
-    const data = await ((pdf as any).default || pdf)(buffer)
+    const pdf = await import('pdf-parse')
+    const parseFn = (pdf as any).default || pdf
+    const data = await parseFn(buffer)
     return data.text || ''
   } catch (error: any) {
     console.error('Error parsing PDF:', error)
@@ -17,11 +24,12 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
 
 /**
  * Parses a DOCX (Word) buffer and returns its raw text content.
- * Runs completely locally on the server.
  */
 export async function parseDocx(buffer: Buffer): Promise<string> {
   try {
-    const result = await mammoth.extractRawText({ buffer })
+    const mammoth = await import('mammoth')
+    const mammothModule = (mammoth as any).default || mammoth
+    const result = await mammothModule.extractRawText({ buffer })
     return result.value || ''
   } catch (error: any) {
     console.error('Error parsing DOCX:', error)
@@ -31,11 +39,12 @@ export async function parseDocx(buffer: Buffer): Promise<string> {
 
 /**
  * Parses a legacy DOC (Word 97-2003) buffer and returns its raw text content.
- * Runs completely locally on the server using word-extractor.
  */
 export async function parseDoc(buffer: Buffer): Promise<string> {
   try {
-    const extractor = new WordExtractor()
+    const WordExtractor = await import('word-extractor')
+    const ExtractorClass = (WordExtractor as any).default || WordExtractor
+    const extractor = new ExtractorClass()
     const doc = await extractor.extract(buffer)
     return doc.getBody() || ''
   } catch (error: any) {

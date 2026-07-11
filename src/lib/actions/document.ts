@@ -1,16 +1,15 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { parseDocument } from '@/lib/rag/parser'
-import { chunkText } from '@/lib/rag/chunker'
-import { generateEmbeddings } from '@/lib/rag/embedder'
-import { analyzeDocumentText } from '@/lib/rag/analyzer'
 import { revalidatePath } from 'next/cache'
 
 /**
  * Server action to securely upload a file to Supabase storage,
- * parse its contents (PDF/TXT/DOCX), chunk it, generate embeddings,
+ * parse its contents (PDF/TXT/DOCX/DOC), chunk it, generate embeddings,
  * automatically analyze it, and bulk-insert them into pgvector.
+ * 
+ * All heavy library imports are done dynamically inside this function
+ * to prevent Vercel serverless crashes from top-level module evaluation.
  */
 export async function uploadAndProcessDocument(formData: FormData) {
   const supabase = await createClient()
@@ -34,7 +33,7 @@ export async function uploadAndProcessDocument(formData: FormData) {
 
   const name = file.name
   const size = file.size
-  const mimeType = file.type
+  const mimeType = file.type || 'application/octet-stream'
 
   // 2. Create document record in database with pending status
   const { data: doc, error: dbError } = await supabase
@@ -84,21 +83,22 @@ export async function uploadAndProcessDocument(formData: FormData) {
       .update({ storage_path: storagePath, status: 'processing' })
       .eq('id', docId)
 
-    revalidatePath('/dashboard/documents')
-
-    // 6. Parse document content
+    // 6. Parse document content (dynamic import)
+    const { parseDocument } = await import('@/lib/rag/parser')
     const textContent = await parseDocument(fileBuffer, mimeType)
     if (!textContent || textContent.trim() === '') {
       throw new Error('Document contains no readable text.')
     }
 
-    // 7. Create overlapping text chunks
+    // 7. Create overlapping text chunks (dynamic import)
+    const { chunkText } = await import('@/lib/rag/chunker')
     const chunks = chunkText(textContent)
     if (chunks.length === 0) {
       throw new Error('Failed to split document into text chunks.')
     }
 
-    // 8. Generate embeddings in batches
+    // 8. Generate embeddings in batches (dynamic import)
+    const { generateEmbeddings } = await import('@/lib/rag/embedder')
     const chunkTexts = chunks.map((c) => c.content)
     const embeddings = await generateEmbeddings(chunkTexts)
 
@@ -133,6 +133,7 @@ export async function uploadAndProcessDocument(formData: FormData) {
     // 11. Automatically generate local/LLM document analysis & feedback report
     let analysisReport = ''
     try {
+      const { analyzeDocumentText } = await import('@/lib/rag/analyzer')
       analysisReport = await analyzeDocumentText(textContent, name)
     } catch (analysisErr) {
       console.error('Auto-analysis generation failed, skipping:', analysisErr)
@@ -204,7 +205,8 @@ export async function generateDocumentAnalysis(documentId: string) {
   const textContent = chunks.map(c => c.content).join('\n')
 
   try {
-    // Generate analysis
+    // Generate analysis (dynamic import)
+    const { analyzeDocumentText } = await import('@/lib/rag/analyzer')
     const report = await analyzeDocumentText(textContent, doc.name)
     
     // Save report to database

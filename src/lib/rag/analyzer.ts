@@ -1,7 +1,11 @@
-import { openai } from '@ai-sdk/openai'
-import { anthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
-import { generateText } from 'ai'
+'use server'
+
+/**
+ * Document analysis module with serverless-safe architecture.
+ * 
+ * All AI SDK imports are dynamic to prevent Vercel serverless crashes.
+ * Falls back to a comprehensive local text analysis engine if no AI is available.
+ */
 
 const TURKISH_STOPWORDS = new Set([
   've', 'veya', 'ama', 'fakat', 'lakin', 'ise', 'ile', 'ki', 'da', 'de', 'bir', 'bu', 'şu', 'o',
@@ -159,7 +163,8 @@ ${recommendations.length === 0
 
 /**
  * Analyzes document text and generates a detailed feedback report.
- * Tries local Ollama first, then cloud models (OpenAI/Anthropic), and falls back to local text analysis.
+ * Uses dynamic imports for all AI SDKs to prevent serverless crashes.
+ * Falls back to local text analysis if no AI model is available.
  */
 export async function analyzeDocumentText(text: string, fileName: string): Promise<string> {
   const hasOpenAI = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== ''
@@ -189,29 +194,36 @@ export async function analyzeDocumentText(text: string, fileName: string): Promi
 
   // 1. If any LLM engine is active, use it for a rich semantic analysis
   if (hasOpenAI || hasAnthropic || hasXai || isOllamaRunning) {
-    let model: any
+    try {
+      // Dynamic imports — only loaded when actually needed
+      const { generateText } = await import('ai')
+      let model: any
 
-    if (isOllamaRunning) {
-      const localOllama = createOpenAI({
-        baseURL: 'http://localhost:11434/v1',
-        apiKey: 'ollama',
-      })
-      model = localOllama(ollamaModel)
-    } else if (hasAnthropic) {
-      model = anthropic('claude-3-5-sonnet-20241022')
-    } else if (hasXai) {
-      const xai = createOpenAI({
-        name: 'xai',
-        apiKey: process.env.XAI_API_KEY || '',
-        baseURL: 'https://api.x.ai/v1',
-      })
-      model = xai('grok-beta')
-    } else {
-      model = openai('gpt-4o')
-    }
+      if (isOllamaRunning) {
+        const { createOpenAI } = await import('@ai-sdk/openai')
+        const localOllama = createOpenAI({
+          baseURL: 'http://localhost:11434/v1',
+          apiKey: 'ollama',
+        })
+        model = localOllama(ollamaModel)
+      } else if (hasAnthropic) {
+        const { anthropic } = await import('@ai-sdk/anthropic')
+        model = anthropic('claude-3-5-sonnet-20241022')
+      } else if (hasXai) {
+        const { createOpenAI } = await import('@ai-sdk/openai')
+        const xai = createOpenAI({
+          name: 'xai',
+          apiKey: process.env.XAI_API_KEY || '',
+          baseURL: 'https://api.x.ai/v1',
+        })
+        model = xai('grok-beta')
+      } else {
+        const { openai } = await import('@ai-sdk/openai')
+        model = openai('gpt-4o')
+      }
 
-    const truncatedText = text.slice(0, 10000) // Keep within safe model context limit
-    const prompt = `Aşağıda metni verilen "${fileName}" adlı dokümanı detaylı bir şekilde analiz et ve bir geribildirim (feedback) raporu oluştur. 
+      const truncatedText = text.slice(0, 10000) // Keep within safe model context limit
+      const prompt = `Aşağıda metni verilen "${fileName}" adlı dokümanı detaylı bir şekilde analiz et ve bir geribildirim (feedback) raporu oluştur. 
 
 Analiz sonucunda şu başlıklar mutlaka bulunmalıdır:
 1. Genel Özet ve Amaç (Metnin ana konusu ve ne amaçla yazıldığı)
@@ -227,7 +239,6 @@ Doküman İçeriği:
 ${truncatedText}
 ---`
 
-    try {
       const { text: responseText } = await generateText({
         model,
         prompt,
