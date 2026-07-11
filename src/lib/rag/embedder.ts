@@ -4,6 +4,11 @@ import { env, pipeline } from '@xenova/transformers'
 env.cacheDir = '/tmp/transformers-cache'
 env.allowLocalModels = false // Prevents checking local paths and speeds up loading
 
+// Optimize thread usage for serverless containers
+if (env.backends?.onnx?.wasm) {
+  env.backends.onnx.wasm.numThreads = 1
+}
+
 // Singleton class to ensure the ONNX model is loaded only once and cached in memory
 class EmbedderPipeline {
   static instance: any = null
