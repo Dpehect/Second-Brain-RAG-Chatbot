@@ -4,6 +4,7 @@ import DocumentList from '@/components/documents/document-list'
 import { Files } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export default async function DocumentsPage() {
   const supabase = await createClient()
