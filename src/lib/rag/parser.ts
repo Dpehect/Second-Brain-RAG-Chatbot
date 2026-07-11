@@ -1,5 +1,6 @@
 import * as pdf from 'pdf-parse'
 import mammoth from 'mammoth'
+import WordExtractor from 'word-extractor'
 
 /**
  * Parses a PDF buffer and returns its raw text content.
@@ -29,17 +30,34 @@ export async function parseDocx(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Parses a legacy DOC (Word 97-2003) buffer and returns its raw text content.
+ * Runs completely locally on the server using word-extractor.
+ */
+export async function parseDoc(buffer: Buffer): Promise<string> {
+  try {
+    const extractor = new WordExtractor()
+    const doc = await extractor.extract(buffer)
+    return doc.getBody() || ''
+  } catch (error: any) {
+    console.error('Error parsing legacy DOC:', error)
+    throw new Error(`Failed to parse legacy Word document: ${error.message}`)
+  }
+}
+
+/**
  * Route handler / Server Action helper to parse uploaded documents.
- * Supports PDF, DOCX (Word), and plain text / Markdown formats.
+ * Supports PDF, DOCX (Word), DOC (Legacy Word), and plain text / Markdown formats.
  */
 export async function parseDocument(buffer: Buffer, mimeType: string): Promise<string> {
+  const isDoc = mimeType === 'application/msword'
+  const isDocx = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
   if (mimeType === 'application/pdf') {
     return parsePdf(buffer)
-  } else if (
-    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    mimeType === 'application/msword'
-  ) {
+  } else if (isDocx) {
     return parseDocx(buffer)
+  } else if (isDoc) {
+    return parseDoc(buffer)
   } else if (
     mimeType === 'text/plain' ||
     mimeType === 'text/markdown' ||

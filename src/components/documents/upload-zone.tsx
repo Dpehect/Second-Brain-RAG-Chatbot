@@ -147,9 +147,14 @@ export default function UploadZone() {
                 browse
               </button>
             </p>
-            <p className="text-xs text-neutral-500">
-              Supports PDF, DOCX (Word), TXT, or Markdown (Max 10MB)
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-neutral-450">
+                Supports PDF, DOCX, DOC (Word), TXT, or Markdown
+              </p>
+              <div className="inline-flex items-center gap-1.5 rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/20 mx-auto">
+                ⚠️ Sunucu Limit Sınırı: En Fazla 10 MB
+              </div>
+            </div>
           </div>
         )}
       </div>
