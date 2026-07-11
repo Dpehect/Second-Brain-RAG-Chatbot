@@ -52,6 +52,7 @@ create table if not exists public.documents (
   mime_type text not null,
   status text not null default 'pending', -- 'pending', 'processing', 'completed', 'failed'
   error_message text,
+  analysis text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

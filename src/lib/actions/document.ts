@@ -4,12 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { parseDocument } from '@/lib/rag/parser'
 import { chunkText } from '@/lib/rag/chunker'
 import { generateEmbeddings } from '@/lib/rag/embedder'
+import { analyzeDocumentText } from '@/lib/rag/analyzer'
 import { revalidatePath } from 'next/cache'
 
 /**
  * Server action to securely upload a file to Supabase storage,
- * parse its contents (PDF/TXT), chunk it, generate embeddings,
- * and bulk-insert them into pgvector.
+ * parse its contents (PDF/TXT/DOCX), chunk it, generate embeddings,
+ * automatically analyze it, and bulk-insert them into pgvector.
  */
 export async function uploadAndProcessDocument(formData: FormData) {
   const supabase = await createClient()
@@ -129,10 +130,21 @@ export async function uploadAndProcessDocument(formData: FormData) {
       }
     }
 
-    // 11. Update document status to completed
+    // 11. Automatically generate local/LLM document analysis & feedback report
+    let analysisReport = ''
+    try {
+      analysisReport = await analyzeDocumentText(textContent, name)
+    } catch (analysisErr) {
+      console.error('Auto-analysis generation failed, skipping:', analysisErr)
+    }
+
+    // 12. Update document status to completed and store analysis report
     await supabase
       .from('documents')
-      .update({ status: 'completed' })
+      .update({ 
+        status: 'completed',
+        analysis: analysisReport || null
+      })
       .eq('id', docId)
 
     revalidatePath('/dashboard/documents')
@@ -152,6 +164,65 @@ export async function uploadAndProcessDocument(formData: FormData) {
 
     revalidatePath('/dashboard/documents')
     return { error: err.message || 'Processing failed' }
+  }
+}
+
+/**
+ * Server action to manually trigger or re-run document feedback analysis.
+ */
+export async function generateDocumentAnalysis(documentId: string) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { error: 'Unauthorized.' }
+  }
+
+  // Fetch document details
+  const { data: doc, error: fetchDocError } = await supabase
+    .from('documents')
+    .select('name')
+    .eq('id', documentId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchDocError || !doc) {
+    return { error: 'Document not found.' }
+  }
+
+  // Fetch all text chunks for this document
+  const { data: chunks, error: fetchChunksError } = await supabase
+    .from('document_chunks')
+    .select('content')
+    .eq('document_id', documentId)
+    .order('chunk_index', { ascending: true })
+
+  if (fetchChunksError || !chunks || chunks.length === 0) {
+    return { error: 'No content found to analyze for this document.' }
+  }
+
+  const textContent = chunks.map(c => c.content).join('\n')
+
+  try {
+    // Generate analysis
+    const report = await analyzeDocumentText(textContent, doc.name)
+    
+    // Save report to database
+    const { error: updateError } = await supabase
+      .from('documents')
+      .update({ analysis: report })
+      .eq('id', documentId)
+      .eq('user_id', user.id)
+
+    if (updateError) {
+      throw new Error(`DB update failed: ${updateError.message}`)
+    }
+
+    revalidatePath('/dashboard/documents')
+    return { success: true, analysis: report }
+  } catch (err: any) {
+    console.error('Failed to trigger manual document analysis:', err)
+    return { error: err.message || 'Analysis generation failed.' }
   }
 }
 

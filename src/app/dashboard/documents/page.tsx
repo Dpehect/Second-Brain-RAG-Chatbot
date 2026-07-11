@@ -11,7 +11,7 @@ export default async function DocumentsPage() {
   // Fetch documents list
   const { data: documents } = await supabase
     .from('documents')
-    .select('id, name, size, mime_type, status, error_message, created_at')
+    .select('id, name, size, mime_type, status, error_message, analysis, created_at')
     .order('created_at', { ascending: false })
 
   return (

@@ -39,11 +39,21 @@ export default function UploadZone() {
   }
 
   const validateAndSetFile = (file: File) => {
-    const validTypes = ['application/pdf', 'text/plain', 'text/markdown']
-    const isTxtOrMd = file.name.endsWith('.txt') || file.name.endsWith('.md')
+    const validTypes = [
+      'application/pdf',
+      'text/plain',
+      'text/markdown',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ]
+    const isTxtOrMdOrDoc = 
+      file.name.endsWith('.txt') || 
+      file.name.endsWith('.md') || 
+      file.name.endsWith('.docx') || 
+      file.name.endsWith('.doc')
     
-    if (!validTypes.includes(file.type) && !isTxtOrMd) {
-      toast.error('Invalid file type. Only PDF, TXT, and Markdown files are supported.')
+    if (!validTypes.includes(file.type) && !isTxtOrMdOrDoc) {
+      toast.error('Invalid file type. Only PDF, Word (DOCX), TXT, and Markdown files are supported.')
       return
     }
 
@@ -101,7 +111,7 @@ export default function UploadZone() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.txt,.md"
+          accept=".pdf,.txt,.md,.docx,.doc"
           className="hidden"
           onChange={handleFileChange}
           disabled={isUploading}
@@ -138,7 +148,7 @@ export default function UploadZone() {
               </button>
             </p>
             <p className="text-xs text-neutral-500">
-              Supports PDF, TXT, or Markdown (Max 10MB)
+              Supports PDF, DOCX (Word), TXT, or Markdown (Max 10MB)
             </p>
           </div>
         )}
